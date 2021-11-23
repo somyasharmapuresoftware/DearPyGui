@@ -153,7 +153,7 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         python -m pip install --upgrade pip twine wheel
-        python -m setup bdist_wheel --plat-name manylinux1_x86_64 --dist-dir dist
+        python -m setup bdist_wheel --plat-name manylinux_2_17_x86_64 --dist-dir dist
 
     - name: Upload Linux ${{ matrix.python-version }} Wheel
       uses: actions/upload-artifact@v2
