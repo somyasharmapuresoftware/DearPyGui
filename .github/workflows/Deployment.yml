@@ -195,7 +195,8 @@ jobs:
         cd .. && \
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain=stable && \
         source $HOME/.cargo/env && \
-        pip3 install -U pip cryptography twine wheel setuptools && \
+        pip3 install -U pip && \
+        pip3 install cryptography twine wheel setuptools && \
         python3 -m setup bdist_wheel --plat-name manylinux2014_aarch64 --dist-dir dist'
     - name: Upload Linux Arch64 ${{ matrix.python-version }} Wheel
       uses: actions/upload-artifact@v2
