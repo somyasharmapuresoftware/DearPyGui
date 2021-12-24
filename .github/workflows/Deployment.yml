@@ -162,9 +162,51 @@ jobs:
         path: ${{ github.workspace }}/dist/*.whl
         retention-days: 2
 
+  build-linux-aarch64-wheels:
+    runs-on: ubuntu-18.04
+    env:
+      img: quay.io/pypa/manylinux2014_aarch64
+    strategy:
+      matrix:
+        python-version: ['cp36-cp36m', 'cp37-cp37m', 'cp38-cp38', 'cp39-cp39', 'cp310-cp310']
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Set up QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v1
+    - name: Building Linux Aarch64 Wheel
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+        ${{ env.img }} \
+        bash -exc 'echo "Retrieve submodules/Dependencies" && \
+        git submodule update --init --recursive ./Dependencies/imgui && \
+        git submodule update --init --recursive ./Dependencies/freetype && \
+        git submodule update --init --recursive ./Dependencies/glfw && \
+        yum update -y && \
+        yum install mesa-libGLU-devel mesa-libGL-devel xorg-x11-server-devel libXrandr-devel freetype-devel harfbuzz gcc python3-devel libffi-devel wget curl libXinerama-devel libXcursor-devel libXi-devel -y && \
+        echo "Mark Versions" && \
+        echo ${{ github.event.inputs.version }} > version_number.txt && \
+        echo "Build Wheel" && \
+        wget https://ftp.openssl.org/source/old/1.1.1/openssl-1.1.1.tar.gz --no-check-certificate && \
+        tar xvf openssl-1.1.1.tar.gz && cd openssl-1.1.1/ && \
+        ./config --prefix=/usr --openssldir=/etc/ssl --libdir=lib no-shared zlib-dynamic && \
+        make && make install && \
+        cd .. && \
+        curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain=stable && \
+        source $HOME/.cargo/env && \
+        pip3 install -U pip cryptography twine wheel setuptools && \
+        python3 -m setup bdist_wheel --plat-name manylinux2014_aarch64 --dist-dir dist'
+    - name: Upload Linux Arch64 ${{ matrix.python-version }} Wheel
+      uses: actions/upload-artifact@v2
+      with:
+        name: linuxaarch64build${{ matrix.python-version }}
+        path: ${{ github.workspace }}/dist/*.whl
+        retention-days: 2
+
   deploy-packages:
 
-    needs: [build-windows-wheels, build-mac10-wheels, build-linux-wheels]
+    needs: [build-windows-wheels, build-mac10-wheels, build-linux-wheels, build-linux-aarch64-wheels]
     runs-on: windows-2019
 
     steps:
@@ -191,6 +233,7 @@ jobs:
         python -m twine upload windowsbuild*/* -u __token__ -p ${{ secrets.PYPI_PASSWORD }} --skip-existing
         python -m twine upload apple10build*/* -u __token__ -p ${{ secrets.PYPI_PASSWORD }} --skip-existing
         python -m twine upload linuxbuild*/* -u __token__ -p ${{ secrets.PYPI_PASSWORD }} --skip-existing
+        python -m twine upload linuxaarch64build*/* -u __token__ -p ${{ secrets.PYPI_PASSWORD }} --skip-existing
 
     - name: Test PyPi Deployment
       shell: cmd
@@ -200,3 +243,4 @@ jobs:
         python -m twine upload --repository testpypi windowsbuild*/* -u __token__ -p ${{ secrets.TEST_PYPI_PASSWORD }} --skip-existing
         python -m twine upload --repository testpypi apple10build*/* -u __token__ -p ${{ secrets.TEST_PYPI_PASSWORD }} --skip-existing
         python -m twine upload --repository testpypi linuxbuild*/* -u __token__ -p ${{ secrets.TEST_PYPI_PASSWORD }} --skip-existing
+        python -m twine upload --repository testpypi linuxaarch64build*/* -u __token__ -p ${{ secrets.TEST_PYPI_PASSWORD }} --skip-existing
